@@ -1,0 +1,192 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * node_remote module file.
+ *
+ * This module provides client API for node services.
+ */
+
+/**
+ * Form builder: Builds the node_remote administration overview.
+ */
+function node_remote_admin() {
+  $form = array();
+
+  // xmlrpc_url
+  $form['node_remote_xmlrpc_url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Server address'),
+    '#default_value' => variable_get('node_remote_xmlrpc_url', 'services/xmlrpc'),
+    '#size' => 50,
+    '#maxlength' => 255,
+    '#description' => t("The URL of XML-RPC service"),
+    '#required' => TRUE,
+  );
+
+  // API key
+  $form['node_remote_api_key'] = array(
+    '#type' => 'textfield',
+    '#title' => t('API Key'),
+    '#default_value' => variable_get('node_remote_api_key', ''),
+    '#size' => 50,
+    '#maxlength' => 255,
+    '#description' => t("Leave empty if service does not require authorization"),
+  );
+
+  // domain name
+  $form['node_remote_domain'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Domain Name'),
+    '#default_value' => variable_get('node_remote_domain', $_SERVER['HTTP_HOST']),
+    '#size' => 50,
+    '#maxlength' => 255,
+    '#description' => t("Domain name allowed to use above API key"),
+  );
+
+  // node type filter
+  $form['node_remote_type'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Node type'),
+    '#default_value' => variable_get('node_remote_type', ''),
+    '#size' => 50,
+    '#maxlength' => 255,
+    '#description' => t("Only specified type of nodes will be requested"),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Validate the remote_node settings form.
+ */
+function node_remote_admin_validate($form, &$form_state) {
+  // The domain can't be empty when token specified.
+  if (!empty($form_state['values']['node_remote_api_key'])
+    && empty($form_state['values']['node_remote_domain'])) {
+    form_set_error('node_remote_domain', 'Domain name required for token based authorization');
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function node_remote_menu() {
+  $items = array();
+  $items['admin/settings/node_remote'] = array(
+    'title' => 'Node Remote',
+    'description' => 'Configure node_remote module',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('node_remote_admin'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Remote Node API functions.
+ */
+
+/**
+ * XML-RPC Call.
+ *
+ * This method support anonymous session and token based
+ * authorization if API Key specified in module settings.
+ */
+function node_remote_xmlrpc_call($method) {
+  include_once './includes/xmlrpc.inc';
+  $args = func_get_args();
+  unset($args[0]);
+
+  // retrieve xml-rpc url
+  $xmlrpc_url = url(
+    variable_get('node_remote_xmlrpc_url', 'services/xmlrpc'),
+    array('absolute'=>TRUE)
+  );
+
+  // Get anon session. system.connect is the only service that does
+  // not require a sessionid even when you have 'Use Sess ID' checked.
+  $anon_session = xmlrpc($xmlrpc_url, 'system.connect');
+
+  // authorization arguments
+  $auth_args = array();
+  if ($api_key = variable_get('node_remote_api_key', '')) {
+    $domain = variable_get('node_remote_domain', $_SERVER['HTTP_HOST']);
+    $timestamp = (string) time();
+    $nonce = user_password();
+    $hash = hash_hmac(
+      'sha256',
+      $timestamp .';'.$domain .';'. $nonce .';'.'nodelist.get', $api_key
+    );
+    $auth_args = array($hash, $domain, $timestamp, $nonce);
+  }
+
+  // construct final arguments
+  $args = array_merge(
+    array($xmlrpc_url, $method),
+    $auth_args,
+    array($anon_session['sessid']),
+    $args
+  );
+
+  // call xml-rpc method
+  return call_user_func_array('_xmlrpc', $args);
+}
+
+/**
+ * Retrieve a node object via remote service.
+ *
+ * @param $nid
+ *   The ID of node.
+ *
+ * @return
+ *   A fully-populated node object.
+ */
+function node_remote_load($nid, $reset = NULL) {
+  static $node;
+
+  if (!isset($node) || $reset) {
+    if (!$reset && ($cache = cache_get('node_remote_node')) && !empty($cache->data)) {
+      $node = $cache->data;
+    }
+    else {
+      // node.get
+      if ($xmlrpc_result = node_remote_xmlrpc_call('node.get', $nid)) {
+        //error_log(sprintf('%s', print_r($xmlrpc_result, true)));
+        $node = $xmlrpc_result;
+        cache_set('node_remote_node', $node, 'cache', CACHE_TEMPORARY);
+      }
+    }
+  }
+
+  return $node;
+}
+
+/**
+ * Retrive the list of nodes via remote service.
+ *
+ * @return
+ *   Array of available nodes.
+ */
+function node_remote_nodes($reset = NULL) {
+  static $nodes = array();
+
+  if (!count($nodes) || $reset) {
+    if (!$reset && ($cache = cache_get('node_remote_nodes')) && !empty($cache->data)) {
+      $nodes = $cache->data;
+    }
+    else {
+      // nodelist.get
+      if ($xmlrpc_result = node_remote_xmlrpc_call('nodelist.get', variable_get('node_remote_type', ''))) {
+        //error_log(sprintf('%s', print_r($xmlrpc_result, true)));
+        $nodes = $xmlrpc_result;
+        cache_set('node_remote_nodes', $nodes, 'cache', CACHE_TEMPORARY);
+      }
+    }
+  }
+
+  return $nodes;
+}

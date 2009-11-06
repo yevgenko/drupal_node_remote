@@ -1,0 +1,7 @@
+; $Id$
+name = Remote Node
+description = Provides client API for node service.
+package = Other
+
+core = 6.x
+version = "6.x-1.0"
