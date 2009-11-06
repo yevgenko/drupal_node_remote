@@ -1,0 +1,9 @@
+; $Id$
+name = Remote Node Content
+description = Ctools content_type plugin to display nodes of remote website(for Panels, etc.).
+package = Chaos tool suite
+dependencies[] = ctools
+dependencies[] = node_remote
+
+core = 6.x
+version = "6.x-1.0"

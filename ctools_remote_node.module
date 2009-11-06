@@ -1,0 +1,20 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * ctools_remote_node module file.
+ *
+ * This module provide ctools content_type plugin to display nodes
+ * of remote website as local content(for Panels, etc.).
+ */
+
+/**
+ * Implementation of hook_ctools_plugin_dierctory() to let the system know
+ * we implement task and task_handler plugins.
+ */
+function ctools_remote_node_ctools_plugin_directory($module, $plugin) {
+  if ($module == 'ctools' && !empty($plugin)) {
+    return 'plugins/' . $plugin;
+  }
+}
