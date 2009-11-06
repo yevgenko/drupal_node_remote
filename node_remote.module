@@ -119,7 +119,7 @@ function node_remote_xmlrpc_call($method) {
     $nonce = user_password();
     $hash = hash_hmac(
       'sha256',
-      $timestamp .';'.$domain .';'. $nonce .';'.'nodelist.get', $api_key
+      $timestamp .';'.$domain .';'. $nonce .';'.$method, $api_key
     );
     $auth_args = array($hash, $domain, $timestamp, $nonce);
   }
@@ -146,19 +146,16 @@ function node_remote_xmlrpc_call($method) {
  *   A fully-populated node object.
  */
 function node_remote_load($nid, $reset = NULL) {
-  static $node;
 
-  if (!isset($node) || $reset) {
-    if (!$reset && ($cache = cache_get('node_remote_node')) && !empty($cache->data)) {
-      $node = $cache->data;
-    }
-    else {
-      // node.get
-      if ($xmlrpc_result = node_remote_xmlrpc_call('node.get', $nid)) {
-        //error_log(sprintf('%s', print_r($xmlrpc_result, true)));
-        $node = $xmlrpc_result;
-        cache_set('node_remote_node', $node, 'cache', CACHE_TEMPORARY);
-      }
+  if (!$reset && ($cache = cache_get('node_remote_node:'.$nid)) && !empty($cache->data)) {
+    $node = $cache->data;
+  }
+  else {
+    // node.get
+    if ($xmlrpc_result = node_remote_xmlrpc_call('node.get', $nid)) {
+      //error_log(sprintf('%s', print_r($xmlrpc_result, true)));
+      $node = $xmlrpc_result;
+      cache_set('node_remote_node:'.$nid, $node, 'cache', CACHE_TEMPORARY);
     }
   }
 
