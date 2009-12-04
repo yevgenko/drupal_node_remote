@@ -1,6 +1,7 @@
 ; $Id$
 name = Remote Node
 description = Provides client API for node service.
+dependencies[] = clients_xmlrpc
 package = Other
 
 core = 6.x
