@@ -21,6 +21,13 @@ function ctools_remote_node_remote_node_ctools_content_types() {
     'top level' => TRUE,
     'category' => t('Custom'),
     'defaults' => array('remote_node_id' => -1),
+		// add form callback
+		'add form' => array(
+			'remote_node_content_type_form' => t('Content type'),
+			'remote_node_content_edit_form' => t('Content')
+		),
+		// edit form callback
+		'edit form' => 'remote_node_content_edit_form',
     // render callback is automatically deduced:
     // 'render callback' => 'ctools_custom_content_type_render',
     'all contexts' => TRUE,
@@ -66,17 +73,43 @@ function ctools_remote_node_remote_node_content_type_admin_info($subtype, $conf)
 }
 
 /**
- * Returns an edit form for the remote_node type.
+ * The form to choose content type.
  */
-function ctools_remote_node_remote_node_content_type_edit_form(&$form, &$form_state) {
+function remote_node_content_type_form(&$form, &$form_state) {
   $conf = $form_state['conf'];
 
-  // Select static page to display
+  // Select the type of remote node
+  $form['remote_node_type'] = array(
+    '#title' => t('Node type'),
+    '#type' => 'radios',
+    '#options' => node_remote_types('names'),
+    '#description' => t('Select the type of remote node.'),
+  );
+
+  return $form;
+}
+
+/**
+ * The submit form stores the data in $conf.
+ */
+function remote_node_content_type_form_submit(&$form, &$form_state) {
+	$form_state['conf']['remote_node_type'] = $form_state['values']['remote_node_type'];
+}
+
+/**
+ * The form to select node.
+ */
+function remote_node_content_edit_form(&$form, &$form_state) {
+  $conf = $form_state['conf'];
+
+	$node_type = isset($form_state['values']['remote_node_type'])?$form_state['values']['remote_node_type']:$conf['remote_node_type'];
+
+  // Select remote content to display
   $form['remote_node_id'] = array(
     '#title' => t('Remote Node'),
     '#type' => 'select',
     '#default_value' => $conf['remote_node_id'],
-    '#options' => node_remote_nodes(),
+    '#options' => node_remote_nodes($node_type),
     '#description' => t('Select the page.'),
   );
 
@@ -86,10 +119,8 @@ function ctools_remote_node_remote_node_content_type_edit_form(&$form, &$form_st
 /**
  * The submit form stores the data in $conf.
  */
-function ctools_remote_node_remote_node_content_type_edit_form_submit(&$form, &$form_state) {
-  foreach (array_keys($form_state['plugin']['defaults']) as $key) {
-    $form_state['conf'][$key] = $form_state['values'][$key];
-  }
+function remote_node_content_edit_form_submit(&$form, &$form_state) {
+	$form_state['conf']['remote_node_id'] = $form_state['values']['remote_node_id'];
 }
 
 /**
